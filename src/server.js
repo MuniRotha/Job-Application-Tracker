@@ -1,5 +1,6 @@
 require('dotenv').config({ quiet: true });
 
+const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const PgSession = require('connect-pg-simple')(session);
@@ -7,6 +8,7 @@ const PgSession = require('connect-pg-simple')(session);
 const pool = require('./db');
 const authRoutes = require('./routes/auth');
 const applicationRoutes = require('./routes/applications');
+const { redirectIfLoggedIn } = require('./middleware/requireAuth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -52,6 +54,18 @@ app.use(
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
+
+// Pages
+const page = (name) => path.join(__dirname, '..', 'views', `${name}.html`);
+
+app.get('/', (req, res) => res.redirect(req.session.userId ? '/dashboard' : '/login'));
+app.get('/login', redirectIfLoggedIn, (req, res) => res.sendFile(page('login')));
+app.get('/register', redirectIfLoggedIn, (req, res) => res.sendFile(page('register')));
+
+// CSS, JS and images
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
+app.use((req, res) => res.status(404).sendFile(page('404')));
 
 // Any error thrown in a route ends up here (Express 5 catches async errors too).
 app.use((err, req, res, next) => {
