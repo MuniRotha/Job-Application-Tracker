@@ -6,6 +6,7 @@ const PgSession = require('connect-pg-simple')(session);
 
 const pool = require('./db');
 const authRoutes = require('./routes/auth');
+const applicationRoutes = require('./routes/applications');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -49,6 +50,7 @@ app.use(
 
 // API
 app.use('/api/auth', authRoutes);
+app.use('/api/applications', applicationRoutes);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 
 // Any error thrown in a route ends up here (Express 5 catches async errors too).
