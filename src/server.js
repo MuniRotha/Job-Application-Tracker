@@ -8,7 +8,7 @@ const PgSession = require('connect-pg-simple')(session);
 const pool = require('./db');
 const authRoutes = require('./routes/auth');
 const applicationRoutes = require('./routes/applications');
-const { redirectIfLoggedIn } = require('./middleware/requireAuth');
+const { requirePageAuth, redirectIfLoggedIn } = require('./middleware/requireAuth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -61,6 +61,7 @@ const page = (name) => path.join(__dirname, '..', 'views', `${name}.html`);
 app.get('/', (req, res) => res.redirect(req.session.userId ? '/dashboard' : '/login'));
 app.get('/login', redirectIfLoggedIn, (req, res) => res.sendFile(page('login')));
 app.get('/register', redirectIfLoggedIn, (req, res) => res.sendFile(page('register')));
+app.get('/dashboard', requirePageAuth, (req, res) => res.sendFile(page('dashboard')));
 
 // CSS, JS and images
 app.use(express.static(path.join(__dirname, '..', 'public')));

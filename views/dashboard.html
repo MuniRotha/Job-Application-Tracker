@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your applications | Job Application Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/dashboard">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        Job Application Tracker
+      </a>
+      <div class="topbar-user">
+        <span class="user-name" id="user-name"></span>
+        <button type="button" class="btn btn-secondary" id="logout-btn">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-head">
+      <div>
+        <h1 id="greeting">Your applications</h1>
+        <p id="subhead">Every job you've applied to, from first click to final answer.</p>
+      </div>
+      <button type="button" class="btn btn-primary" id="add-btn">Add application</button>
+    </div>
+
+    <!-- Status counts. Clicking a stage filters the table. -->
+    <nav class="pipeline" aria-label="Filter by status">
+      <div class="pipeline-track">
+        <button type="button" class="stage" data-status="Applied" aria-pressed="false">
+          <span class="stage-dot" aria-hidden="true"></span>
+          <span class="stage-count" data-count="Applied">0</span>
+          <span class="stage-name">Applied</span>
+        </button>
+        <button type="button" class="stage" data-status="Interview" aria-pressed="false">
+          <span class="stage-dot" aria-hidden="true"></span>
+          <span class="stage-count" data-count="Interview">0</span>
+          <span class="stage-name">Interview</span>
+        </button>
+        <button type="button" class="stage" data-status="Offer" aria-pressed="false">
+          <span class="stage-dot" aria-hidden="true"></span>
+          <span class="stage-count" data-count="Offer">0</span>
+          <span class="stage-name">Offer</span>
+        </button>
+      </div>
+      <div class="pipeline-divider" aria-hidden="true"></div>
+      <div class="pipeline-side">
+        <button type="button" class="stage stage-side" data-status="Rejected" aria-pressed="false">
+          <span class="stage-dot" aria-hidden="true"></span>
+          <span class="stage-count" data-count="Rejected">0</span>
+          <span class="stage-name">Rejected</span>
+        </button>
+        <button type="button" class="stage stage-side" data-status="" aria-pressed="true">
+          <span class="stage-dot" aria-hidden="true"></span>
+          <span class="stage-count" data-count="total">0</span>
+          <span class="stage-name">All</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="toolbar">
+      <p class="result-note" id="result-note" aria-live="polite"></p>
+      <div class="toolbar-sort">
+        <label for="sort-select">Sort by</label>
+        <select id="sort-select">
+          <option value="date_desc">Newest first</option>
+          <option value="date_asc">Oldest first</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Company and role</th>
+            <th scope="col">Applied</th>
+            <th scope="col">Status</th>
+            <th scope="col">Notes</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody id="app-rows"></tbody>
+      </table>
+      <div class="empty" id="empty-state" hidden></div>
+    </div>
+  </main>
+
+  <!-- Add / edit form -->
+  <dialog id="app-dialog" aria-labelledby="dialog-title">
+    <form id="app-form" novalidate>
+      <div class="dialog-head">
+        <h2 id="dialog-title">Add application</h2>
+      </div>
+      <div class="dialog-body">
+        <div class="form-error" id="app-form-error" role="alert"></div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="company">Company</label>
+            <input type="text" id="company" name="company" maxlength="150" required>
+          </div>
+          <div class="field">
+            <label for="role">Role</label>
+            <input type="text" id="role" name="role" maxlength="150" required>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="date_applied">Date applied</label>
+            <input type="date" id="date_applied" name="date_applied" required>
+          </div>
+          <div class="field">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+              <option>Applied</option>
+              <option>Interview</option>
+              <option>Offer</option>
+              <option>Rejected</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="job_url">Link to job post</label>
+          <input type="url" id="job_url" name="job_url" placeholder="https://" maxlength="2000">
+        </div>
+
+        <div class="field">
+          <label for="notes">Notes</label>
+          <textarea id="notes" name="notes" maxlength="5000" aria-describedby="notes-hint"></textarea>
+          <span class="hint" id="notes-hint">Interview feedback, recruiter name, salary range, next steps.</span>
+        </div>
+      </div>
+      <div class="dialog-foot">
+        <button type="button" class="btn btn-secondary" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" id="save-btn">Save application</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Delete confirmation -->
+  <dialog id="delete-dialog" aria-labelledby="delete-title">
+    <div class="dialog-head">
+      <h2 id="delete-title">Delete this application?</h2>
+    </div>
+    <div class="dialog-body">
+      <p class="confirm-text" id="delete-text"></p>
+    </div>
+    <div class="dialog-foot">
+      <button type="button" class="btn btn-secondary" data-close>Keep it</button>
+      <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete application</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>
