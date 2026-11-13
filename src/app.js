@@ -1,0 +1,93 @@
+// Builds the Express app. server.js starts it; the tests import it directly.
+const path = require('path');
+const express = require('express');
+const session = require('express-session');
+const PgSession = require('connect-pg-simple')(session);
+
+const pool = require('./db');
+const authRoutes = require('./routes/auth');
+const applicationRoutes = require('./routes/applications');
+const { requirePageAuth, redirectIfLoggedIn } = require('./middleware/requireAuth');
+
+const isProduction = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
+
+const app = express();
+
+// Don't advertise which framework the server runs.
+app.disable('x-powered-by');
+
+// Behind a host like Render or Railway the app sits behind a proxy;
+// this lets secure cookies work there.
+if (isProduction) app.set('trust proxy', 1);
+
+app.use(express.json({ limit: '50kb' }));
+// Express 5 leaves req.body undefined when a request has no JSON body.
+app.use((req, res, next) => {
+  if (!req.body) req.body = {};
+  next();
+});
+
+const sessionStore = new PgSession({
+  pool,
+  tableName: 'session',
+  createTableIfMissing: true, // connect-pg-simple makes its own "session" table
+  pruneSessionInterval: isTest ? false : 60 * 15, // clear expired sessions every 15 minutes
+});
+
+app.use(
+  session({
+    store: sessionStore,
+    name: 'jat.sid',
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false, // no cookie until someone actually logs in
+    cookie: {
+      httpOnly: true, // page JavaScript can't read the cookie
+      sameSite: 'lax', // other sites can't send logged-in POST/PUT/DELETE requests
+      secure: isProduction, // HTTPS only in production
+      maxAge: 1000 * 60 * 60 * 24 * 7, // one week
+    },
+  })
+);
+
+// Private pages and API answers should never be cached. Without this, pressing
+// Back after logging out can show the dashboard again from the browser cache.
+function noStore(req, res, next) {
+  res.set('Cache-Control', 'no-store');
+  next();
+}
+
+// API
+app.use('/api', noStore);
+app.use('/api/auth', authRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
+
+// Pages
+const page = (name) => path.join(__dirname, '..', 'views', `${name}.html`);
+
+app.get('/', (req, res) => res.redirect(req.session.userId ? '/dashboard' : '/login'));
+app.get('/login', redirectIfLoggedIn, (req, res) => res.sendFile(page('login')));
+app.get('/register', redirectIfLoggedIn, (req, res) => res.sendFile(page('register')));
+app.get('/dashboard', noStore, requirePageAuth, (req, res) => res.sendFile(page('dashboard')));
+
+// CSS, JS and images
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
+app.use((req, res) => res.status(404).sendFile(page('404')));
+
+// Any error thrown in a route ends up here (Express 5 catches async errors too).
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'The request body isn\'t valid JSON.' });
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'That request is too large.' });
+  }
+  console.error(err);
+  res.status(500).json({ error: 'Something went wrong on the server. Try again.' });
+});
+
+module.exports = { app, sessionStore };
