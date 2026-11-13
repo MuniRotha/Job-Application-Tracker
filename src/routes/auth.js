@@ -52,9 +52,10 @@ router.post('/register', async (req, res) => {
   if (password.length < 8) {
     return res.status(400).json({ error: 'Password must be at least 8 characters.' });
   }
-  if (password.length > 72) {
-    // bcrypt only reads the first 72 bytes of a password.
-    return res.status(400).json({ error: 'Password must be 72 characters or fewer.' });
+  if (Buffer.byteLength(password, 'utf8') > 72) {
+    // bcrypt only reads the first 72 bytes. Letters outside basic English
+    // (Khmer, accented letters, emoji) take 2-4 bytes each, so count bytes.
+    return res.status(400).json({ error: 'Password is too long. Keep it to 72 English characters, or fewer if it uses other scripts or emoji.' });
   }
 
   const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
@@ -87,7 +88,10 @@ router.post('/login', async (req, res) => {
     [email]
   );
   const user = result.rows[0];
-  const matches = await bcrypt.compare(password, user ? user.password : DUMMY_HASH);
+  let matches = await bcrypt.compare(password, user ? user.password : DUMMY_HASH);
+  // bcrypt ignores everything after 72 bytes, so a long password could match
+  // a different one with the same start. No account can have one that long.
+  if (Buffer.byteLength(password, 'utf8') > 72) matches = false;
 
   if (!user || !matches) {
     return res.status(401).json({ error: 'That email and password don\'t match an account.' });
