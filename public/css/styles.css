@@ -22,7 +22,7 @@
   --danger: #a93636;
   --focus: #2f5f98;
 
-  --font: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font: "Public Sans", "Noto Sans Khmer", "Khmer UI", "Leelawadee UI", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --radius-sm: 4px;
   --radius: 8px;
 }
@@ -505,6 +505,16 @@ tbody tr:last-child td {
   border-bottom-color: transparent;
 }
 
+.cell-main {
+  min-width: 12rem;
+}
+
+/* long names with no spaces wrap instead of stretching the table */
+.cell-company,
+.cell-role {
+  overflow-wrap: anywhere;
+}
+
 .cell-company {
   font-weight: 700;
 }
@@ -718,6 +728,8 @@ dialog::backdrop {
   pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease;
   z-index: 50;
+  max-width: calc(100vw - 2rem);
+  overflow-wrap: anywhere;
 }
 
 .toast.is-visible {
