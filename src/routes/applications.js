@@ -1,11 +1,10 @@
 const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/requireAuth');
+const { STATUSES, text, validateApplication, parseId } = require('../validation');
 
 const router = express.Router();
 router.use(requireAuth);
-
-const STATUSES = ['Applied', 'Interview', 'Offer', 'Rejected'];
 
 // Only these sort orders are allowed. The values are fixed SQL fragments, so
 // nothing the user sends ever gets pasted into the query.
@@ -16,73 +15,17 @@ const SORTS = {
 
 const COLUMNS = 'id, company, role, status, date_applied, job_url, notes, created_at';
 
-function isValidDate(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
-}
-
-function isValidUrl(value) {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-// Check and clean the fields for a create or full update.
-// Returns { data } on success or { error } with a message for the user.
-function validateApplication(body) {
-  const company = String(body.company || '').trim();
-  const role = String(body.role || '').trim();
-  const status = body.status ? String(body.status) : 'Applied';
-  const dateApplied = String(body.date_applied || '').trim();
-  const jobUrl = String(body.job_url || '').trim();
-  const notes = String(body.notes || '').trim();
-
-  if (!company) return { error: 'Company is required.' };
-  if (!role) return { error: 'Role is required.' };
-  if (company.length > 150) return { error: 'Company must be 150 characters or fewer.' };
-  if (role.length > 150) return { error: 'Role must be 150 characters or fewer.' };
-  if (!STATUSES.includes(status)) {
-    return { error: `Status must be one of: ${STATUSES.join(', ')}.` };
-  }
-  if (!dateApplied) return { error: 'Date applied is required.' };
-  if (!isValidDate(dateApplied)) return { error: 'Date applied must be a real date (YYYY-MM-DD).' };
-  if (jobUrl && !isValidUrl(jobUrl)) {
-    return { error: 'Job link must start with http:// or https://' };
-  }
-  if (jobUrl.length > 2000) return { error: 'Job link is too long.' };
-  if (notes.length > 5000) return { error: 'Notes must be 5,000 characters or fewer.' };
-
-  return {
-    data: {
-      company,
-      role,
-      status,
-      date_applied: dateApplied,
-      job_url: jobUrl || null,
-      notes: notes || null,
-    },
-  };
-}
-
-function parseId(raw) {
-  const id = Number(raw);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
 // GET /api/applications?status=Interview&sort=date_desc
 router.get('/', async (req, res) => {
   const { status, sort } = req.query;
-  const orderBy = SORTS[sort] || SORTS.date_desc;
+  // Object.hasOwn stops values like ?sort=__proto__ from reaching the SQL.
+  const orderBy = Object.hasOwn(SORTS, sort) ? SORTS[sort] : SORTS.date_desc;
   const params = [req.session.userId];
   let where = 'user_id = $1';
 
-  if (status) {
+  if (status !== undefined && status !== '') {
     if (!STATUSES.includes(status)) {
-      return res.status(400).json({ error: `Unknown status "${status}".` });
+      return res.status(400).json({ error: `Status filter must be one of: ${STATUSES.join(', ')}.` });
     }
     params.push(status);
     where += ` AND status = $${params.length}`;
@@ -160,7 +103,7 @@ router.patch('/:id/status', async (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(404).json({ error: 'Application not found.' });
 
-  const status = String(req.body.status || '');
+  const status = text(req.body.status);
   if (!STATUSES.includes(status)) {
     return res.status(400).json({ error: `Status must be one of: ${STATUSES.join(', ')}.` });
   }
@@ -178,7 +121,7 @@ router.patch('/:id/notes', async (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(404).json({ error: 'Application not found.' });
 
-  const notes = String(req.body.notes || '').trim();
+  const notes = text(req.body.notes);
   if (notes.length > 5000) {
     return res.status(400).json({ error: 'Notes must be 5,000 characters or fewer.' });
   }

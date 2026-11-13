@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/requireAuth');
+const { text } = require('../validation');
 
 const router = express.Router();
 const SALT_ROUNDS = 12;
@@ -35,9 +36,9 @@ async function logIn(req, user) {
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
-  const name = String(req.body.name || '').trim();
-  const email = String(req.body.email || '').trim().toLowerCase();
-  const password = String(req.body.password || '');
+  const name = text(req.body.name);
+  const email = text(req.body.email).toLowerCase();
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Name, email and password are all required.' });
@@ -74,8 +75,8 @@ router.post('/register', async (req, res) => {
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
-  const email = String(req.body.email || '').trim().toLowerCase();
-  const password = String(req.body.password || '');
+  const email = text(req.body.email).toLowerCase();
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Enter your email and password.' });
