@@ -53,10 +53,13 @@ cd job-tracker
 npm install
 ```
 
-**2. Create the database**
+**2. Create the databases**
+
+One for the app, and a separate one the tests are allowed to wipe:
 
 ```powershell
 psql -U postgres -c "CREATE DATABASE job_tracker;"
+psql -U postgres -c "CREATE DATABASE job_tracker_test;"
 ```
 
 If PowerShell says `psql` isn't recognized, use the full path instead (change `17` to your PostgreSQL version):
@@ -71,9 +74,9 @@ If PowerShell says `psql` isn't recognized, use the full path instead (change `1
 Copy-Item .env.example .env
 ```
 
-Open `.env` and change two lines:
+Open `.env` and change these lines:
 
-- `DATABASE_URL`: put your postgres password in place of `yourpassword`.
+- `DATABASE_URL` and `TEST_DATABASE_URL`: put your postgres password in place of `yourpassword`.
 - `SESSION_SECRET`: any long random string. This command prints one you can paste in:
 
 ```powershell
@@ -92,7 +95,26 @@ npm run db:init
 npm run dev
 ```
 
-Open http://localhost:3000, create an account and add your first application. `npm run dev` restarts the server whenever you save a file. Use `npm start` to run it without that.
+Open http://localhost:3000, create an account and add your first application. `npm run dev` restarts the server whenever you save a file (it uses Node's built-in `--watch`). Use `npm start` to run it without that.
+
+## Running the tests
+
+```powershell
+npm test
+```
+
+There are 108 tests and they take about 6 seconds. They run against `TEST_DATABASE_URL`, empty it first, and refuse to start if it points at the same database as `DATABASE_URL`.
+
+- `tests/validation.test.js` checks the input rules on their own: dates, links, statuses, length limits, ids.
+- `tests/api.test.js` starts the real app and calls every route with supertest. It covers:
+  - register, login and logout, including bcrypt hashing and the session cookie flags
+  - a new session id on every login
+  - every CRUD route, filtering and sorting
+  - one user trying to read, edit or delete another user's applications
+  - SQL and HTML injection attempts, bad ids, broken JSON and oversized requests
+  - the database's own constraints
+
+Uses Node's built-in test runner (`node:test`) and `supertest`. No other test framework needed.
 
 ## API
 
@@ -137,8 +159,10 @@ job-tracker/
 ├── scripts/
 │   └── init-db.js            # runs schema.sql (npm run db:init)
 ├── src/
-│   ├── server.js             # Express app, sessions, page routes
+│   ├── server.js             # starts the app
+│   ├── app.js                # Express app, sessions, page routes
 │   ├── db.js                 # PostgreSQL connection pool
+│   ├── validation.js         # input rules shared by the routes
 │   ├── middleware/
 │   │   └── requireAuth.js    # blocks logged-out users
 │   └── routes/
@@ -151,6 +175,10 @@ job-tracker/
 │   ├── js/auth.js            # login + register forms
 │   ├── js/dashboard.js       # everything on the dashboard
 │   └── favicon.svg
+├── tests/
+│   ├── helpers.js            # test database setup, logged-in test users
+│   ├── validation.test.js
+│   └── api.test.js
 ├── .env.example
 └── package.json
 ```
@@ -163,16 +191,15 @@ job-tracker/
 - All SQL uses parameterized queries (`$1`, `$2`). The sort order comes from a fixed list, never from raw user input.
 - The dashboard builds the page with `textContent` instead of `innerHTML`, so anything typed into a note shows up as text and can't run as code.
 - Login failures give the same message whether the email exists or not.
+- Passwords are capped at 72 bytes, not 72 characters. bcrypt ignores everything after byte 72, and Khmer or accented letters take 2-3 bytes each, so without this a different password with the same start could log in.
+- Every input is type-checked, so `{"company": {}}` is rejected instead of saved as `[object Object]`, and ids or sort values that don't fit cause a clean 400/404 instead of a server error.
+- The dashboard and API send `Cache-Control: no-store`, so pressing Back after logging out doesn't bring your applications back from the browser cache.
 
 ## Pushing to GitHub
 
-Create an empty repository on GitHub (no README, no .gitignore), then:
+The project already has its commit history. Create an empty repository on GitHub (no README, no .gitignore, no license), then from the project folder:
 
 ```powershell
-git init
-git add .
-git commit -m "Job Application Tracker: auth, CRUD, status tracking, notes"
-git branch -M main
 git remote add origin https://github.com/YOUR-USERNAME/job-application-tracker.git
 git push -u origin main
 ```
