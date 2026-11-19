@@ -4,6 +4,14 @@ A small web app for keeping track of a job hunt. You log each job you apply to, 
 
 Built with Node.js, Express and PostgreSQL. The frontend is plain HTML, CSS and JavaScript with no framework.
 
+![Dashboard with applications in every stage](docs/screenshots/dashboard.png)
+
+| Filtered to Interview, notes open | Phone |
+| --- | --- |
+| ![Dashboard filtered to Interview with the notes panel open](docs/screenshots/filter-and-notes.png) | <img src="docs/screenshots/mobile.png" alt="Dashboard on a phone" width="260"> |
+
+The screenshots use made-up sample data.
+
 ## Features
 
 - Register, log in and log out. Passwords are hashed with bcrypt and logins use server-side sessions stored in PostgreSQL.
@@ -175,6 +183,7 @@ job-tracker/
 │   ├── js/auth.js            # login + register forms
 │   ├── js/dashboard.js       # everything on the dashboard
 │   └── favicon.svg
+├── docs/screenshots/        # images used in this README
 ├── tests/
 │   ├── helpers.js            # test database setup, logged-in test users
 │   ├── validation.test.js
